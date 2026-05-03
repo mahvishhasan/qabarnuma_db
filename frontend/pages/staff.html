@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Staff — QabarNuma</title>
+<link rel="stylesheet" href="../css/styles.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo"><div class="logo-icon"><i data-lucide="moon"></i></div><div><div class="logo-title">QabarNuma</div><div class="logo-sub">Cemetery Mgmt</div></div></div>
+  <ul class="nav-links">
+    <li><a href="../index.html"         class="nav-link"><span class="ni"><i data-lucide="layout-dashboard"></i></span> Dashboard</a></li>
+    <li><a href="cemeteries.html"       class="nav-link"><span class="ni"><i data-lucide="building-2"></i></span> Cemeteries</a></li>
+    <li><a href="graves.html"           class="nav-link"><span class="ni"><i data-lucide="square"></i></span> Graves</a></li>
+    <li><a href="deathcases.html"       class="nav-link"><span class="ni"><i data-lucide="clipboard-list"></i></span> Death Cases</a></li>
+    <li><a href="burials.html"          class="nav-link"><span class="ni"><i data-lucide="book-open"></i></span> Burials</a></li>
+    <li><a href="reservations.html"     class="nav-link"><span class="ni"><i data-lucide="bookmark"></i></span> Reservations</a></li>
+    <li><a href="funeralservices.html"  class="nav-link"><span class="ni"><i data-lucide="heart-handshake"></i></span> Funeral Services</a></li>
+    <li><a href="staff.html"            class="nav-link"><span class="ni"><i data-lucide="users"></i></span> Staff</a></li>
+    <li><a href="reports.html"          class="nav-link"><span class="ni"><i data-lucide="bar-chart-2"></i></span> Reports</a></li>
+    <li><a href="graveyard.html" class="nav-link"><span class="ni"><i data-lucide="map"></i></span> Graveyard Map</a></li>
+  </ul>
+</nav>
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left"><h1 class="page-title">Staff & Users</h1><p class="page-sub">Manage system users and staff</p></div>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add User</button>
+  </header>
+  <div class="card">
+    <div class="filters">
+      <div class="form-group">
+        <label>Filter by Role</label>
+        <select class="form-control" id="f-role" onchange="load()">
+          <option value="">All Roles</option>
+          <option>Admin</option><option>Manager</option>
+          <option>Coordinator</option><option>Staff</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Search</label>
+        <input class="form-control" id="f-search" placeholder="Name or CNIC…" oninput="applySearch()"/>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>CNIC</th><th>Phone</th><th>Email</th><th>Role</th><th>Cemetery</th></tr></thead>
+        <tbody id="staffTbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="addStaffModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add User</span>
+      <button class="modal-close" onclick="closeModal('addStaffModal')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Full Name *</label>
+        <input class="form-control" id="s-name" placeholder="e.g. Ahmed Raza"/>
+      </div>
+      <div class="form-group">
+        <label>CNIC *</label>
+        <input class="form-control" id="s-cnic" placeholder="35201-1234567-1"/>
+      </div>
+      <div class="form-group">
+        <label>Phone *</label>
+        <input class="form-control" id="s-phone" placeholder="0300-1234567"/>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Email</label>
+        <input class="form-control" type="email" id="s-email" placeholder="user@example.com"/>
+      </div>
+      <div class="form-group">
+        <label>Role *</label>
+        <select class="form-control" id="s-role">
+          <option>Admin</option><option>Manager</option>
+          <option>Coordinator</option><option>Staff</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Assigned Cemetery</label>
+        <select class="form-control" id="s-cemetery"><option value="">None</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addStaffModal')">Cancel</button>
+      <button class="btn btn-primary" id="saveUserBtn" onclick="addUser()">Add User</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/app.js"></script>
+<script>
+let allUsers = [];
+
+async function load() {
+  document.getElementById('staffTbody').innerHTML = `<tr><td colspan="7" class="empty">Loading…</td></tr>`;
+  const role = document.getElementById('f-role').value;
+  try {
+    allUsers = await apiFetch('/users' + (role ? `?role=${role}` : ''));
+    renderUsers(allUsers);
+  } catch(e) {
+    document.getElementById('staffTbody').innerHTML = `<tr><td colspan="7" class="empty" style="color:var(--red)">${e.message}</td></tr>`;
+  }
+}
+
+function renderUsers(list) {
+  document.getElementById('staffTbody').innerHTML = list.length
+    ? list.map(u => `<tr>
+        <td>#${u.user_id}</td>
+        <td><strong>${u.name}</strong></td>
+        <td style="font-family:monospace;font-size:.78rem;color:var(--text-faint)">${u.cnic}</td>
+        <td style="color:var(--text-faint)">${u.phone}</td>
+        <td style="color:var(--text-faint)">${u.email || '—'}</td>
+        <td><span class="badge role-badge-${u.role}">${u.role}</span></td>
+        <td style="color:var(--text-faint)">${u.cemetery_name || '—'}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="7" class="empty">No users found</td></tr>`;
+}
+
+function applySearch() {
+  const q = document.getElementById('f-search').value.toLowerCase();
+  renderUsers(allUsers.filter(u =>
+    u.name.toLowerCase().includes(q) || u.cnic.includes(q)
+  ));
+}
+
+async function openAddModal() {
+  clearForm('#addStaffModal');
+  try {
+    const cems = await apiFetch('/cemeteries');
+    const sel = document.getElementById('s-cemetery');
+    sel.innerHTML = '<option value="">None</option>';
+    cems.forEach(c => sel.innerHTML += `<option value="${c.cemetery_id}">${c.name}</option>`);
+  } catch(e) {}
+  openModal('addStaffModal');
+}
+
+async function addUser() {
+  const name  = document.getElementById('s-name').value.trim();
+  const cnic  = document.getElementById('s-cnic').value.trim();
+  const phone = document.getElementById('s-phone').value.trim();
+  if (!name)  return toast('Name is required', 'error');
+  if (!cnic)  return toast('CNIC is required', 'error');
+  if (!phone) return toast('Phone is required', 'error');
+  const cemVal = document.getElementById('s-cemetery').value;
+  const btn = document.getElementById('saveUserBtn');
+  setSaving(btn, true);
+  try {
+    await apiFetch('/users', {
+      method: 'POST',
+      body: {
+        name, cnic, phone,
+        email:       document.getElementById('s-email').value || null,
+        role:        document.getElementById('s-role').value,
+        cemetery_id: cemVal ? parseInt(cemVal) : null,
+      }
+    });
+    closeModal('addStaffModal');
+    toast('User added successfully');
+    await load();
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    setSaving(btn, false);
+  }
+}
+
+load();
+</script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

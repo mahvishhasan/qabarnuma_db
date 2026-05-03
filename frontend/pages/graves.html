@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Graves — QabarNuma</title>
+<link rel="stylesheet" href="../css/styles.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo"><div class="logo-icon"><i data-lucide="moon"></i></div><div><div class="logo-title">QabarNuma</div><div class="logo-sub">Cemetery Mgmt</div></div></div>
+  <ul class="nav-links">
+    <li><a href="../index.html"         class="nav-link"><span class="ni"><i data-lucide="layout-dashboard"></i></span> Dashboard</a></li>
+    <li><a href="cemeteries.html"       class="nav-link"><span class="ni"><i data-lucide="building-2"></i></span> Cemeteries</a></li>
+    <li><a href="graves.html"           class="nav-link"><span class="ni"><i data-lucide="square"></i></span> Graves</a></li>
+    <li><a href="deathcases.html"       class="nav-link"><span class="ni"><i data-lucide="clipboard-list"></i></span> Death Cases</a></li>
+    <li><a href="burials.html"          class="nav-link"><span class="ni"><i data-lucide="book-open"></i></span> Burials</a></li>
+    <li><a href="reservations.html"     class="nav-link"><span class="ni"><i data-lucide="bookmark"></i></span> Reservations</a></li>
+    <li><a href="funeralservices.html"  class="nav-link"><span class="ni"><i data-lucide="heart-handshake"></i></span> Funeral Services</a></li>
+    <li><a href="staff.html"            class="nav-link"><span class="ni"><i data-lucide="users"></i></span> Staff</a></li>
+    <li><a href="reports.html"          class="nav-link"><span class="ni"><i data-lucide="bar-chart-2"></i></span> Reports</a></li>
+    <li><a href="graveyard.html" class="nav-link"><span class="ni"><i data-lucide="map"></i></span> Graveyard Map</a></li>
+  </ul>
+</nav>
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left"><h1 class="page-title">Graves</h1><p class="page-sub">Search and manage grave plots</p></div>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add Grave</button>
+  </header>
+  <div class="card">
+    <div class="filters">
+      <div class="form-group">
+        <label>Search</label>
+        <input class="form-control" id="f-search" placeholder="Code or landmark…" oninput="applyFilters()"/>
+      </div>
+      <div class="form-group">
+        <label>Cemetery</label>
+        <select class="form-control" id="f-cem" onchange="applyFilters()">
+          <option value="">All Cemeteries</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select class="form-control" id="f-status" onchange="applyFilters()">
+          <option value="">All</option>
+          <option>Available</option><option>Occupied</option>
+          <option>Reserved</option><option>Maintenance</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:flex-end">
+        <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Code</th><th>Cemetery</th><th>Section</th><th>Plot Type</th><th>Row</th><th>Status</th><th>Landmark</th><th>Actions</th></tr></thead>
+        <tbody id="gravesTbody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Add Grave Modal -->
+<div class="modal-overlay" id="addGraveModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add New Grave</span>
+      <button class="modal-close" onclick="closeModal('addGraveModal')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Section *</label>
+        <select class="form-control" id="g-section"><option value="">Loading sections…</option></select>
+      </div>
+      <div class="form-group">
+        <label>Plot Type *</label>
+        <select class="form-control" id="g-plottype"></select>
+      </div>
+      <div class="form-group">
+        <label>Grave Code *</label>
+        <input class="form-control" id="g-code" placeholder="e.g. MT-A-010"/>
+      </div>
+      <div class="form-group">
+        <label>Row Number *</label>
+        <input class="form-control" type="number" id="g-row" value="1" min="1"/>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Landmark Description</label>
+        <input class="form-control" id="g-landmark" placeholder="Near the east wall…"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addGraveModal')">Cancel</button>
+      <button class="btn btn-primary" id="saveGraveBtn" onclick="addGrave()">Add Grave</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Status Modal -->
+<div class="modal-overlay" id="statusModal">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-header">
+      <span class="modal-title">Update Grave Status</span>
+      <button class="modal-close" onclick="closeModal('statusModal')">✕</button>
+    </div>
+    <input type="hidden" id="edit-grave-id"/>
+    <div class="form-group">
+      <label>New Status</label>
+      <select class="form-control" id="edit-status">
+        <option>Available</option><option>Occupied</option>
+        <option>Reserved</option><option>Maintenance</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('statusModal')">Cancel</button>
+      <button class="btn btn-primary" id="saveStatusBtn" onclick="updateStatus()">Update</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/app.js"></script>
+<script>
+let allGraves = [];
+
+async function load() {
+  document.getElementById('gravesTbody').innerHTML = `<tr><td colspan="8" class="empty">Loading…</td></tr>`;
+  try {
+    const [graves, cems] = await Promise.all([
+      apiFetch('/graves'),
+      apiFetch('/cemeteries'),
+    ]);
+    allGraves = graves;
+    const cemSel = document.getElementById('f-cem');
+    // Only add options once
+    if (cemSel.options.length === 1) {
+      cems.forEach(c => cemSel.innerHTML += `<option value="${c.cemetery_id}">${c.name}</option>`);
+    }
+    renderGraves(allGraves);
+  } catch(e) {
+    document.getElementById('gravesTbody').innerHTML = `<tr><td colspan="8" class="empty" style="color:var(--red)">${e.message}</td></tr>`;
+  }
+}
+
+async function openAddModal() {
+  clearForm('#addGraveModal');
+  // Load sections and plot types in parallel
+  const [sections, plottypes] = await Promise.all([
+    apiFetch('/sections'),
+    apiFetch('/plottypes'),
+  ]);
+  document.getElementById('g-section').innerHTML = sections.map(s =>
+    `<option value="${s.section_id}">${s.cemetery_name} — ${s.name}</option>`).join('');
+  document.getElementById('g-plottype').innerHTML = plottypes.map(pt =>
+    `<option value="${pt.plot_type_id}">${pt.name} (${pt.max_slots} slot${pt.max_slots>1?'s':''})</option>`).join('');
+  openModal('addGraveModal');
+}
+
+function renderGraves(list) {
+  document.getElementById('gravesTbody').innerHTML = list.length
+    ? list.map(g => `<tr>
+        <td><strong>${g.grave_code}</strong></td>
+        <td>${g.cemetery_name}</td>
+        <td>${g.section_name}</td>
+        <td><span class="badge badge-accent">${g.plot_type}</span></td>
+        <td style="color:var(--text-faint)">Row ${g.row_number}</td>
+        <td>${statusBadge(g.status)}</td>
+        <td style="color:var(--text-faint);font-size:.78rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.landmark_description||'—'}</td>
+        <td class="td-actions">
+          <button class="btn-sm" onclick="editStatus(${g.grave_id},'${g.status}')">Edit Status</button>
+        </td>
+      </tr>`).join('')
+    : `<tr><td colspan="8" class="empty">No graves found</td></tr>`;
+}
+
+function applyFilters() {
+  const search = document.getElementById('f-search').value.toLowerCase();
+  const cem    = document.getElementById('f-cem').value;
+  const status = document.getElementById('f-status').value;
+  renderGraves(allGraves.filter(g =>
+    (!search || g.grave_code.toLowerCase().includes(search) || (g.landmark_description||'').toLowerCase().includes(search)) &&
+    (!cem    || String(g.cemetery_id) === cem) &&
+    (!status || g.status === status)
+  ));
+}
+
+function resetFilters() {
+  document.getElementById('f-search').value = '';
+  document.getElementById('f-cem').value = '';
+  document.getElementById('f-status').value = '';
+  renderGraves(allGraves);
+}
+
+function editStatus(id, current) {
+  document.getElementById('edit-grave-id').value = id;
+  document.getElementById('edit-status').value = current;
+  openModal('statusModal');
+}
+
+async function updateStatus() {
+  const id     = document.getElementById('edit-grave-id').value;
+  const status = document.getElementById('edit-status').value;
+  const btn    = document.getElementById('saveStatusBtn');
+  setSaving(btn, true);
+  try {
+    await apiFetch(`/graves/${id}/status`, { method: 'PATCH', body: { status } });
+    closeModal('statusModal');
+    toast('Grave status updated');
+    // Update in memory and re-render — no full reload needed
+    allGraves = allGraves.map(g => g.grave_id == id ? { ...g, status } : g);
+    applyFilters();
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    setSaving(btn, false);
+  }
+}
+
+async function addGrave() {
+  const code = document.getElementById('g-code').value.trim();
+  const row  = parseInt(document.getElementById('g-row').value);
+  if (!code)      return toast('Grave code is required', 'error');
+  if (!row || row < 1) return toast('Row number must be at least 1', 'error');
+  const btn = document.getElementById('saveGraveBtn');
+  setSaving(btn, true);
+  try {
+    await apiFetch('/graves', {
+      method: 'POST',
+      body: {
+        section_id:           parseInt(document.getElementById('g-section').value),
+        plot_type_id:         parseInt(document.getElementById('g-plottype').value),
+        grave_code:           code,
+        row_number:           row,
+        landmark_description: document.getElementById('g-landmark').value || null,
+      }
+    });
+    closeModal('addGraveModal');
+    toast('Grave added successfully');
+    await load();
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    setSaving(btn, false);
+  }
+}
+
+load();
+</script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

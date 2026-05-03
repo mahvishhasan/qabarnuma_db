@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Graveyard Map — QabarNuma</title>
+<link rel="stylesheet" href="../css/styles.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+.cemetery-tabs {
+  display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+}
+.cem-tab {
+  padding: .45rem 1rem; border-radius: 6px;
+  border: 1px solid var(--border-soft); background: #fff;
+  color: var(--text-muted); font-size: .82rem; font-weight: 500;
+  cursor: pointer; transition: all .15s; font-family: 'DM Sans', sans-serif;
+}
+.cem-tab:hover { border-color: var(--border); color: var(--text-secondary); }
+.cem-tab.active { background: var(--bg-elevated); color: #fff; border-color: var(--bg-elevated); }
+
+.section-block {
+  background: #fff; border: 1px solid var(--border-soft);
+  border-radius: 12px; padding: 1.4rem; margin-bottom: 1.5rem;
+}
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.1rem; flex-wrap: wrap; gap: .75rem;
+}
+.section-title {
+  font-family: 'Amiri', serif; font-size: 1.05rem;
+  font-weight: 700; color: #191C1D;
+}
+.section-meta {
+  display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
+}
+.section-stat {
+  font-size: .75rem; color: var(--text-muted);
+  background: #F4F6F5; border: 1px solid var(--border-soft);
+  border-radius: 5px; padding: .22rem .6rem;
+}
+
+.grave-grid {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.grave-row {
+  display: flex; gap: 4px; align-items: center;
+}
+.row-label {
+  font-size: .65rem; color: var(--text-faint);
+  width: 40px; text-align: right; padding-right: 6px;
+  flex-shrink: 0; font-family: monospace;
+}
+
+.grave-cell {
+  border-radius: 4px; cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform .1s, box-shadow .1s;
+  position: relative; display: flex;
+  align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.grave-cell:hover {
+  transform: scale(1.12); z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+
+/* sizes by plot type */
+.grave-cell.size-standard { width: 36px; height: 24px; }
+.grave-cell.size-family   { width: 54px; height: 36px; }
+.grave-cell.size-child    { width: 24px; height: 16px; }
+.grave-cell.size-unknown  { width: 36px; height: 24px; }
+
+/* status colors */
+.grave-cell.status-Available   { background: #d1fae5; border-color: #6ee7b7; }
+.grave-cell.status-Occupied    { background: #fee2e2; border-color: #fca5a5; }
+.grave-cell.status-Reserved    { background: #dbeafe; border-color: #93c5fd; }
+.grave-cell.status-Maintenance { background: #f3f4f6; border-color: #d1d5db; }
+
+.grave-code-label {
+  font-size: 6px; color: rgba(0,0,0,.45);
+  font-family: monospace; pointer-events: none;
+  white-space: nowrap; overflow: hidden;
+  text-overflow: clip; max-width: 100%;
+  padding: 0 2px;
+}
+
+/* Legend */
+.legend {
+  display: flex; gap: 1rem; flex-wrap: wrap;
+  margin-bottom: 1.5rem; padding: .85rem 1.1rem;
+  background: #F4F6F5; border: 1px solid var(--border-soft);
+  border-radius: 8px; align-items: center;
+}
+.legend-item { display: flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--text-secondary); }
+.legend-swatch {
+  width: 18px; height: 12px; border-radius: 3px;
+  border: 1px solid rgba(0,0,0,.1);
+}
+.legend-swatch.Available   { background: #d1fae5; border-color: #6ee7b7; }
+.legend-swatch.Occupied    { background: #fee2e2; border-color: #fca5a5; }
+.legend-swatch.Reserved    { background: #dbeafe; border-color: #93c5fd; }
+.legend-swatch.Maintenance { background: #f3f4f6; border-color: #d1d5db; }
+
+.legend-sizes { display: flex; gap: .75rem; align-items: center; margin-left: auto; }
+.legend-size-item { display: flex; align-items: center; gap: .4rem; font-size: .75rem; color: var(--text-muted); }
+.sz-standard { width: 18px; height: 12px; background: #e5e7eb; border-radius: 2px; border: 1px solid #d1d5db; }
+.sz-family   { width: 27px; height: 18px; background: #e5e7eb; border-radius: 2px; border: 1px solid #d1d5db; }
+.sz-child    { width: 12px; height: 8px;  background: #e5e7eb; border-radius: 2px; border: 1px solid #d1d5db; }
+
+/* Tooltip */
+#tooltip {
+  position: fixed; z-index: 9999;
+  background: #012D1D; color: #E2E8F0;
+  border: 1px solid #414844; border-radius: 8px;
+  padding: .7rem .9rem; font-size: .78rem;
+  pointer-events: none; opacity: 0;
+  transition: opacity .12s; max-width: 220px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  line-height: 1.6;
+}
+#tooltip.visible { opacity: 1; }
+#tooltip strong { color: #fff; font-size: .85rem; display: block; margin-bottom: .2rem; }
+#tooltip .tt-status { font-weight: 600; }
+#tooltip .tt-status.Available   { color: #4ade80; }
+#tooltip .tt-status.Occupied    { color: #f87171; }
+#tooltip .tt-status.Reserved    { color: #60a5fa; }
+#tooltip .tt-status.Maintenance { color: #94A3B8; }
+
+.empty-section {
+  padding: 2rem; text-align: center;
+  color: var(--text-faint); font-size: .83rem;
+  border: 2px dashed var(--border-soft); border-radius: 8px;
+}
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo"><div class="logo-icon"><i data-lucide="moon"></i></div><div><div class="logo-title">QabarNuma</div><div class="logo-sub">Cemetery Mgmt</div></div></div>
+  <ul class="nav-links">
+    <li><a href="../index.html"         class="nav-link"><span class="ni"><i data-lucide="layout-dashboard"></i></span> Dashboard</a></li>
+    <li><a href="cemeteries.html"       class="nav-link"><span class="ni"><i data-lucide="building-2"></i></span> Cemeteries</a></li>
+    <li><a href="graves.html"           class="nav-link"><span class="ni"><i data-lucide="square"></i></span> Graves</a></li>
+    <li><a href="deathcases.html"       class="nav-link"><span class="ni"><i data-lucide="clipboard-list"></i></span> Death Cases</a></li>
+    <li><a href="burials.html"          class="nav-link"><span class="ni"><i data-lucide="book-open"></i></span> Burials</a></li>
+    <li><a href="reservations.html"     class="nav-link"><span class="ni"><i data-lucide="bookmark"></i></span> Reservations</a></li>
+    <li><a href="funeralservices.html"  class="nav-link"><span class="ni"><i data-lucide="heart-handshake"></i></span> Funeral Services</a></li>
+    <li><a href="staff.html"            class="nav-link"><span class="ni"><i data-lucide="users"></i></span> Staff</a></li>
+    <li><a href="reports.html"          class="nav-link"><span class="ni"><i data-lucide="bar-chart-2"></i></span> Reports</a></li>
+    <li><a href="graveyard.html"        class="nav-link"><span class="ni"><i data-lucide="map"></i></span> Graveyard Map</a></li>
+  </ul>
+  <div class="sidebar-footer">QabarNuma v3 · Lahore</div>
+</nav>
+
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title">Graveyard Map</h1>
+      <p class="page-sub">Visual block layout — click any grave for details</p>
+    </div>
+    <button class="btn btn-secondary" onclick="reload()">Refresh</button>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch Available"></div> Available</div>
+    <div class="legend-item"><div class="legend-swatch Occupied"></div> Occupied</div>
+    <div class="legend-item"><div class="legend-swatch Reserved"></div> Reserved</div>
+    <div class="legend-item"><div class="legend-swatch Maintenance"></div> Maintenance</div>
+    <div class="legend-sizes">
+      <span style="font-size:.72rem;color:var(--text-faint);margin-right:.25rem">Plot sizes:</span>
+      <div class="legend-size-item"><div class="sz-standard"></div> Standard (6×3ft)</div>
+      <div class="legend-size-item"><div class="sz-family"></div> Family (12×6ft)</div>
+      <div class="legend-size-item"><div class="sz-child"></div> Child (4×2ft)</div>
+    </div>
+  </div>
+
+  <div class="cemetery-tabs" id="cemTabs">
+    <div class="stat-card loading" style="width:120px;height:36px;border-radius:6px"></div>
+    <div class="stat-card loading" style="width:140px;height:36px;border-radius:6px"></div>
+    <div class="stat-card loading" style="width:110px;height:36px;border-radius:6px"></div>
+  </div>
+
+  <div id="mapContainer"></div>
+</main>
+
+<div id="tooltip"></div>
+
+<script src="../js/app.js"></script>
+<script>
+let allCemeteries = [];
+let activeCemId   = null;
+const tooltip     = document.getElementById('tooltip');
+
+/* ── size class by plot type name ───────────────────── */
+function sizeClass(plotType) {
+  const p = (plotType || '').toLowerCase();
+  if (p.includes('family'))   return 'size-family';
+  if (p.includes('child'))    return 'size-child';
+  return 'size-standard';
+}
+
+/* ── tooltip ─────────────────────────────────────────── */
+function showTooltip(e, grave) {
+  tooltip.innerHTML = `
+    <strong>${grave.grave_code}</strong>
+    <span class="tt-status ${grave.status}">${grave.status}</span>
+    <span style="color:var(--text-muted)">${grave.plot_type} · Row ${grave.row_number}</span>
+    ${grave.landmark_description ? `<span style="color:#94A3B8;font-size:.72rem">${grave.landmark_description}</span>` : ''}
+    ${grave.family_group_name ? `<span style="color:#C1C8C2;font-size:.72rem">Group: ${grave.family_group_name}</span>` : ''}
+  `;
+  tooltip.classList.add('visible');
+  moveTooltip(e);
+}
+
+function moveTooltip(e) {
+  const x = e.clientX + 14;
+  const y = e.clientY - 10;
+  tooltip.style.left = Math.min(x, window.innerWidth - 240) + 'px';
+  tooltip.style.top  = Math.max(y, 8) + 'px';
+}
+
+function hideTooltip() { tooltip.classList.remove('visible'); }
+
+/* ── render one section as a grid ───────────────────── */
+function renderSection(section, graves) {
+  // Group by row_number
+  const rows = {};
+  graves.forEach(g => {
+    const r = g.row_number || 1;
+    if (!rows[r]) rows[r] = [];
+    rows[r].push(g);
+  });
+
+  const rowNums = Object.keys(rows).map(Number).sort((a,b) => a-b);
+
+  if (!rowNums.length) {
+    return `<div class="empty-section">No graves in this section yet</div>`;
+  }
+
+  const available   = graves.filter(g => g.status === 'Available').length;
+  const occupied    = graves.filter(g => g.status === 'Occupied').length;
+  const reserved    = graves.filter(g => g.status === 'Reserved').length;
+  const maintenance = graves.filter(g => g.status === 'Maintenance').length;
+  const pct         = graves.length ? Math.round(100 * occupied / graves.length) : 0;
+
+  const gridHTML = rowNums.map(rn => {
+    const cells = rows[rn].map(g => {
+      const sz  = sizeClass(g.plot_type);
+      const idx = allGravesFlat.findIndex(x => x.grave_id === g.grave_id);
+      return `<div
+        class="grave-cell ${sz} status-${g.status}"
+        data-idx="${idx}"
+        onmouseenter="showTooltip(event, allGravesFlat[${idx}])"
+        onmousemove="moveTooltip(event)"
+        onmouseleave="hideTooltip()"
+      ><span class="grave-code-label">${g.grave_code.split('-').pop()}</span></div>`;
+    }).join('');
+    return `<div class="grave-row">
+      <div class="row-label">Row ${rn}</div>
+      ${cells}
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="section-header">
+      <div>
+        <div class="section-title">${section.name}</div>
+        <div style="font-size:.75rem;color:var(--text-faint);margin-top:.15rem">
+          Zone: <strong style="color:var(--text-secondary)">${section.zone_type}</strong>
+          &nbsp;·&nbsp; Capacity: <strong style="color:var(--text-secondary)">${section.capacity}</strong>
+        </div>
+      </div>
+      <div class="section-meta">
+        <span class="section-stat" style="color:#1B4332;border-color:#d1fae5;background:#d1fae5">${available} available</span>
+        <span class="section-stat" style="color:#c0392b;border-color:#fee2e2;background:#fee2e2">${occupied} occupied</span>
+        ${reserved    ? `<span class="section-stat" style="color:#1d4ed8;border-color:#dbeafe;background:#dbeafe">${reserved} reserved</span>` : ''}
+        ${maintenance ? `<span class="section-stat">${maintenance} maintenance</span>` : ''}
+        <span class="section-stat">${pct}% full</span>
+      </div>
+    </div>
+    <div class="grave-grid">${gridHTML}</div>
+  `;
+}
+
+/* ── load and render map for a cemetery ─────────────── */
+let allGravesFlat = [];
+
+async function loadCemetery(cemId) {
+  activeCemId = cemId;
+
+  // Update tab active state
+  document.querySelectorAll('.cem-tab').forEach(t => {
+    t.classList.toggle('active', parseInt(t.dataset.id) === cemId);
+  });
+
+  const container = document.getElementById('mapContainer');
+  container.innerHTML = `<div class="empty" style="padding:3rem">Loading map…</div>`;
+
+  try {
+    const [sections, graves] = await Promise.all([
+      apiFetch(`/sections?cemetery_id=${cemId}`),
+      apiFetch(`/graves?cemetery=${cemId}`),
+    ]);
+
+    allGravesFlat = graves;
+
+    if (!sections.length) {
+      container.innerHTML = `<div class="empty">No sections found for this cemetery.</div>`;
+      return;
+    }
+
+    container.innerHTML = sections.map(sec => {
+      const secGraves = graves.filter(g => g.section_id === sec.section_id);
+      return `<div class="section-block">${renderSection(sec, secGraves)}</div>`;
+    }).join('');
+
+  } catch(e) {
+    container.innerHTML = `<div class="empty" style="color:var(--red)">${e.message}</div>`;
+  }
+}
+
+/* ── initial load ───────────────────────────────────── */
+async function init() {
+  try {
+    allCemeteries = await apiFetch('/cemeteries');
+    const tabsEl  = document.getElementById('cemTabs');
+    tabsEl.innerHTML = allCemeteries.map(c =>
+      `<button class="cem-tab" data-id="${c.cemetery_id}" onclick="loadCemetery(${c.cemetery_id})">${c.name}</button>`
+    ).join('');
+    if (allCemeteries.length) loadCemetery(allCemeteries[0].cemetery_id);
+  } catch(e) {
+    document.getElementById('cemTabs').innerHTML = `<span style="color:var(--red)">${e.message}</span>`;
+  }
+}
+
+function reload() {
+  if (activeCemId) loadCemetery(activeCemId);
+}
+
+init();
+lucide.createIcons();
+</script>
+</body>
+</html>

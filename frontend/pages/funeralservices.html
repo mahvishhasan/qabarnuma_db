@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Funeral Services — QabarNuma</title>
+<link rel="stylesheet" href="../css/styles.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo"><div class="logo-icon"><i data-lucide="moon"></i></div><div><div class="logo-title">QabarNuma</div><div class="logo-sub">Cemetery Mgmt</div></div></div>
+  <ul class="nav-links">
+    <li><a href="../index.html"         class="nav-link"><span class="ni"><i data-lucide="layout-dashboard"></i></span> Dashboard</a></li>
+    <li><a href="cemeteries.html"       class="nav-link"><span class="ni"><i data-lucide="building-2"></i></span> Cemeteries</a></li>
+    <li><a href="graves.html"           class="nav-link"><span class="ni"><i data-lucide="square"></i></span> Graves</a></li>
+    <li><a href="deathcases.html"       class="nav-link"><span class="ni"><i data-lucide="clipboard-list"></i></span> Death Cases</a></li>
+    <li><a href="burials.html"          class="nav-link"><span class="ni"><i data-lucide="book-open"></i></span> Burials</a></li>
+    <li><a href="reservations.html"     class="nav-link"><span class="ni"><i data-lucide="bookmark"></i></span> Reservations</a></li>
+    <li><a href="funeralservices.html"  class="nav-link"><span class="ni"><i data-lucide="heart-handshake"></i></span> Funeral Services</a></li>
+    <li><a href="staff.html"            class="nav-link"><span class="ni"><i data-lucide="users"></i></span> Staff</a></li>
+    <li><a href="reports.html"          class="nav-link"><span class="ni"><i data-lucide="bar-chart-2"></i></span> Reports</a></li>
+    <li><a href="graveyard.html" class="nav-link"><span class="ni"><i data-lucide="map"></i></span> Graveyard Map</a></li>
+  </ul>
+</nav>
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left"><h1 class="page-title">Funeral Services</h1><p class="page-sub">Assign and track funeral service tasks</p></div>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Assign Service</button>
+  </header>
+
+  <div class="card">
+    <div class="filters">
+      <div class="form-group">
+        <label>Status</label>
+        <select class="form-control" id="f-status" onchange="loadServices()">
+          <option value="">All</option>
+          <option>Pending</option><option>In Progress</option>
+          <option>Completed</option><option>Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Case</th><th>Service</th><th>Status</th><th>Assigned To</th><th>Scheduled</th><th>Completed</th><th>Actions</th></tr></thead>
+        <tbody id="fsTbody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div><div class="card-title">Staff Performance</div><div class="card-subtitle">Completion rates for assigned staff</div></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Staff Name</th><th>Role</th><th>Total</th><th>Completed</th><th>Pending</th><th>Completion Rate</th></tr></thead>
+        <tbody id="perfTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Assign Service Modal -->
+<div class="modal-overlay" id="addFsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Assign Funeral Service</span>
+      <button class="modal-close" onclick="closeModal('addFsModal')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Death Case *</label>
+        <select class="form-control" id="fs-case"><option value="">Loading…</option></select>
+      </div>
+      <div class="form-group">
+        <label>Service Type *</label>
+        <select class="form-control" id="fs-type">
+          <option>Ghusl</option><option>Kafan</option><option>Grave Digging</option>
+          <option>Burial Prep</option><option>Transport</option><option>Janaza</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Assign Staff</label>
+        <select class="form-control" id="fs-staff"><option value="">Loading…</option></select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Scheduled Date & Time</label>
+        <input class="form-control" type="datetime-local" id="fs-scheduled"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addFsModal')">Cancel</button>
+      <button class="btn btn-primary" id="saveFsBtn" onclick="addService()">Assign Service</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/app.js"></script>
+<script>
+async function loadServices() {
+  document.getElementById('fsTbody').innerHTML = `<tr><td colspan="8" class="empty">Loading…</td></tr>`;
+  const status = document.getElementById('f-status').value;
+  try {
+    const data = await apiFetch('/funeralservices' + (status ? `?status=${status}` : ''));
+    document.getElementById('fsTbody').innerHTML = data.length
+      ? data.map(s => `<tr>
+          <td>#${s.service_id}</td>
+          <td>${s.deceased_name}</td>
+          <td><span class="badge badge-accent">${s.service_type}</span></td>
+          <td>${statusBadge(s.status)}</td>
+          <td>${s.assigned_staff || '<span style="color:var(--text-faint)">Unassigned</span>'}</td>
+          <td style="font-size:.78rem">${fmtDateTime(s.scheduled_datetime)}</td>
+          <td style="font-size:.78rem">${fmtDateTime(s.completion_datetime)}</td>
+          <td class="td-actions">
+            ${s.status !== 'Completed' && s.status !== 'Cancelled'
+              ? `<button class="btn-sm green" onclick="markComplete(${s.service_id})">✓ Done</button>` : ''}
+          </td>
+        </tr>`).join('')
+      : `<tr><td colspan="8" class="empty">No services found</td></tr>`;
+  } catch(e) {
+    document.getElementById('fsTbody').innerHTML = `<tr><td colspan="8" class="empty" style="color:var(--red)">${e.message}</td></tr>`;
+  }
+}
+
+async function loadPerformance() {
+  try {
+    const perf = await apiFetch('/funeralservices/stats/staff-performance');
+    document.getElementById('perfTbody').innerHTML = perf.length
+      ? perf.map(p => {
+          const rate = p.completion_rate || 0;
+          return `<tr>
+            <td><strong>${p.staff_name}</strong></td>
+            <td><span class="badge role-badge-${p.role}">${p.role}</span></td>
+            <td>${p.total_assigned}</td>
+            <td style="color:var(--green)">${p.completed}</td>
+            <td style="color:var(--amber)">${p.pending}</td>
+            <td>
+              <div class="occ-bar-wrap">
+                <div class="occ-bar"><div class="occ-fill" style="width:${rate}%;background:${occColor(rate)}"></div></div>
+                <span class="occ-pct">${rate}%</span>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')
+      : `<tr><td colspan="6" class="empty">No staff data</td></tr>`;
+  } catch(e) {}
+}
+
+async function markComplete(id) {
+  if (!confirm('Mark this service as completed?')) return;
+  try {
+    await apiFetch(`/funeralservices/${id}`, { method: 'PATCH', body: { status: 'Completed' } });
+    toast('Service marked complete');
+    await Promise.all([loadServices(), loadPerformance()]);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function openAddModal() {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('fs-scheduled').value = now.toISOString().slice(0, 16);
+  try {
+    const [cases, staff] = await Promise.all([
+      apiFetch('/deathcases?status=Pending'),
+      apiFetch('/users?role=Staff'),
+    ]);
+    document.getElementById('fs-case').innerHTML = cases.length
+      ? cases.map(c => `<option value="${c.case_id}">${c.deceased_name}</option>`).join('')
+      : `<option value="">No pending cases</option>`;
+    document.getElementById('fs-staff').innerHTML = staff.length
+      ? staff.map(s => `<option value="${s.user_id}">${s.name}</option>`).join('')
+      : `<option value="">No staff available</option>`;
+  } catch(e) { toast('Failed to load: ' + e.message, 'error'); return; }
+  openModal('addFsModal');
+}
+
+async function addService() {
+  const caseId  = parseInt(document.getElementById('fs-case').value);
+  const svcType = document.getElementById('fs-type').value;
+  if (!caseId) return toast('Please select a death case', 'error');
+  const btn = document.getElementById('saveFsBtn');
+  setSaving(btn, true);
+  try {
+    await apiFetch('/funeralservices', {
+      method: 'POST',
+      body: {
+        case_id:            caseId,
+        service_type:       svcType,
+        assigned_staff_id:  parseInt(document.getElementById('fs-staff').value) || null,
+        scheduled_datetime: document.getElementById('fs-scheduled').value || null,
+      }
+    });
+    closeModal('addFsModal');
+    toast('Service assigned successfully');
+    await Promise.all([loadServices(), loadPerformance()]);
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    setSaving(btn, false);
+  }
+}
+
+loadServices();
+loadPerformance();
+</script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

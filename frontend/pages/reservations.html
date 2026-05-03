@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Reservations — QabarNuma</title>
+<link rel="stylesheet" href="../css/styles.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo"><div class="logo-icon"><i data-lucide="moon"></i></div><div><div class="logo-title">QabarNuma</div><div class="logo-sub">Cemetery Mgmt</div></div></div>
+  <ul class="nav-links">
+    <li><a href="../index.html"         class="nav-link"><span class="ni"><i data-lucide="layout-dashboard"></i></span> Dashboard</a></li>
+    <li><a href="cemeteries.html"       class="nav-link"><span class="ni"><i data-lucide="building-2"></i></span> Cemeteries</a></li>
+    <li><a href="graves.html"           class="nav-link"><span class="ni"><i data-lucide="square"></i></span> Graves</a></li>
+    <li><a href="deathcases.html"       class="nav-link"><span class="ni"><i data-lucide="clipboard-list"></i></span> Death Cases</a></li>
+    <li><a href="burials.html"          class="nav-link"><span class="ni"><i data-lucide="book-open"></i></span> Burials</a></li>
+    <li><a href="reservations.html"     class="nav-link"><span class="ni"><i data-lucide="bookmark"></i></span> Reservations</a></li>
+    <li><a href="funeralservices.html"  class="nav-link"><span class="ni"><i data-lucide="heart-handshake"></i></span> Funeral Services</a></li>
+    <li><a href="staff.html"            class="nav-link"><span class="ni"><i data-lucide="users"></i></span> Staff</a></li>
+    <li><a href="reports.html"          class="nav-link"><span class="ni"><i data-lucide="bar-chart-2"></i></span> Reports</a></li>
+    <li><a href="graveyard.html" class="nav-link"><span class="ni"><i data-lucide="map"></i></span> Graveyard Map</a></li>
+  </ul>
+</nav>
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left"><h1 class="page-title">Reservations</h1><p class="page-sub">Manage grave reservations</p></div>
+    <button class="btn btn-primary" onclick="openAddModal()">+ New Reservation</button>
+  </header>
+  <div class="card">
+    <div class="filters">
+      <div class="form-group">
+        <label>Status</label>
+        <select class="form-control" id="f-status" onchange="load()">
+          <option value="">All</option>
+          <option>Pending</option><option>Approved</option>
+          <option>Rejected</option><option>Converted</option><option>Expired</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Grave</th><th>Cemetery</th><th>Section</th><th>Reserved By</th><th>Date</th><th>Slots</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="resTbody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- New Reservation Modal -->
+<div class="modal-overlay" id="addResModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">New Reservation</span>
+      <button class="modal-close" onclick="closeModal('addResModal')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Available Grave *</label>
+        <select class="form-control" id="r-grave"><option value="">Loading…</option></select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Reserve For (User) *</label>
+        <select class="form-control" id="r-user"><option value="">Loading…</option></select>
+      </div>
+      <div class="form-group">
+        <label>Number of Slots</label>
+        <input class="form-control" type="number" id="r-slots" value="1" min="1" max="10"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addResModal')">Cancel</button>
+      <button class="btn btn-primary" id="saveResBtn" onclick="addReservation()">Create Reservation</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/app.js"></script>
+<script>
+async function load() {
+  document.getElementById('resTbody').innerHTML = `<tr><td colspan="9" class="empty">Loading…</td></tr>`;
+  const status = document.getElementById('f-status').value;
+  try {
+    const data = await apiFetch('/reservations' + (status ? `?status=${status}` : ''));
+    document.getElementById('resTbody').innerHTML = data.length
+      ? data.map(r => `<tr>
+          <td>#${r.reservation_id}</td>
+          <td><strong>${r.grave_code}</strong></td>
+          <td>${r.cemetery_name}</td>
+          <td>${r.section_name}</td>
+          <td>${r.reserved_by}</td>
+          <td>${fmtDate(r.reservation_date)}</td>
+          <td style="color:var(--text-faint)">${r.number_of_slots}</td>
+          <td>${statusBadge(r.reservation_status)}</td>
+          <td class="td-actions">
+            ${r.reservation_status === 'Pending' ? `
+              <button class="btn-sm green" onclick="setStatus(${r.reservation_id},'Approved')">✓ Approve</button>
+              <button class="btn-sm red"   onclick="setStatus(${r.reservation_id},'Rejected')">✗ Reject</button>` : ''}
+            ${r.reservation_status === 'Approved' ? `
+              <button class="btn-sm red" onclick="setStatus(${r.reservation_id},'Expired')">Expire</button>` : ''}
+          </td>
+        </tr>`).join('')
+      : `<tr><td colspan="9" class="empty">No reservations found</td></tr>`;
+  } catch(e) {
+    document.getElementById('resTbody').innerHTML = `<tr><td colspan="9" class="empty" style="color:var(--red)">${e.message}</td></tr>`;
+  }
+}
+
+async function setStatus(id, status) {
+  if (!confirm(`Set reservation #${id} to "${status}"?`)) return;
+  try {
+    await apiFetch(`/reservations/${id}/status`, { method: 'PATCH', body: { status } });
+    toast(`Reservation ${status.toLowerCase()}`);
+    await load();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function openAddModal() {
+  try {
+    const [graves, users] = await Promise.all([
+      apiFetch('/graves?status=Available'),
+      apiFetch('/users'),
+    ]);
+    document.getElementById('r-grave').innerHTML = graves.length
+      ? graves.map(g => `<option value="${g.grave_id}">${g.grave_code} — ${g.cemetery_name} / ${g.section_name}</option>`).join('')
+      : `<option value="">No available graves</option>`;
+    document.getElementById('r-user').innerHTML = users.map(u =>
+      `<option value="${u.user_id}">${u.name} (${u.role})</option>`).join('');
+    document.getElementById('r-slots').value = '1';
+  } catch(e) { toast('Failed to load: ' + e.message, 'error'); return; }
+  openModal('addResModal');
+}
+
+async function addReservation() {
+  const graveId = parseInt(document.getElementById('r-grave').value);
+  const userId  = parseInt(document.getElementById('r-user').value);
+  if (!graveId) return toast('Please select a grave', 'error');
+  if (!userId)  return toast('Please select a user', 'error');
+  const btn = document.getElementById('saveResBtn');
+  setSaving(btn, true);
+  try {
+    await apiFetch('/reservations', {
+      method: 'POST',
+      body: { grave_id: graveId, reserved_by: userId, number_of_slots: parseInt(document.getElementById('r-slots').value) || 1 }
+    });
+    closeModal('addResModal');
+    toast('Reservation created — grave marked Reserved');
+    await load();
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    setSaving(btn, false);
+  }
+}
+
+load();
+</script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Burials — QabarNuma</title>
+<link rel="stylesheet" href="../css/styles.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo"><div class="logo-icon"><i data-lucide="moon"></i></div><div><div class="logo-title">QabarNuma</div><div class="logo-sub">Cemetery Mgmt</div></div></div>
+  <ul class="nav-links">
+    <li><a href="../index.html"         class="nav-link"><span class="ni"><i data-lucide="layout-dashboard"></i></span> Dashboard</a></li>
+    <li><a href="cemeteries.html"       class="nav-link"><span class="ni"><i data-lucide="building-2"></i></span> Cemeteries</a></li>
+    <li><a href="graves.html"           class="nav-link"><span class="ni"><i data-lucide="square"></i></span> Graves</a></li>
+    <li><a href="deathcases.html"       class="nav-link"><span class="ni"><i data-lucide="clipboard-list"></i></span> Death Cases</a></li>
+    <li><a href="burials.html"          class="nav-link"><span class="ni"><i data-lucide="book-open"></i></span> Burials</a></li>
+    <li><a href="reservations.html"     class="nav-link"><span class="ni"><i data-lucide="bookmark"></i></span> Reservations</a></li>
+    <li><a href="funeralservices.html"  class="nav-link"><span class="ni"><i data-lucide="heart-handshake"></i></span> Funeral Services</a></li>
+    <li><a href="staff.html"            class="nav-link"><span class="ni"><i data-lucide="users"></i></span> Staff</a></li>
+    <li><a href="reports.html"          class="nav-link"><span class="ni"><i data-lucide="bar-chart-2"></i></span> Reports</a></li>
+    <li><a href="graveyard.html" class="nav-link"><span class="ni"><i data-lucide="map"></i></span> Graveyard Map</a></li>
+  </ul>
+</nav>
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left"><h1 class="page-title">Burial Records</h1><p class="page-sub">Record and track all burials</p></div>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add Burial Record</button>
+  </header>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Deceased</th><th>Date of Death</th><th>Grave</th><th>Section</th><th>Cemetery</th><th>Buried On</th><th>Confirmed By</th></tr></thead>
+        <tbody id="burialsTbody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Add Burial Modal -->
+<div class="modal-overlay" id="addBurialModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Burial Record</span>
+      <button class="modal-close" onclick="closeModal('addBurialModal')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Death Case (Unburied) *</label>
+        <select class="form-control" id="b-case"><option value="">Loading…</option></select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Grave *</label>
+        <select class="form-control" id="b-grave"><option value="">Loading…</option></select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Burial Date & Time *</label>
+        <input class="form-control" type="datetime-local" id="b-datetime"/>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Confirmed By *</label>
+        <select class="form-control" id="b-confirmedby"><option value="">Loading…</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addBurialModal')">Cancel</button>
+      <button class="btn btn-primary" id="saveBurialBtn" onclick="addBurial()">Confirm Burial</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/app.js"></script>
+<script>
+async function load() {
+  document.getElementById('burialsTbody').innerHTML = `<tr><td colspan="8" class="empty">Loading…</td></tr>`;
+  try {
+    const burials = await apiFetch('/burials');
+    document.getElementById('burialsTbody').innerHTML = burials.length
+      ? burials.map(b => `<tr>
+          <td>#${b.burial_id}</td>
+          <td><strong>${b.deceased_name}</strong></td>
+          <td>${fmtDate(b.date_of_death)}</td>
+          <td><span style="color:var(--accent)">${b.grave_code}</span></td>
+          <td>${b.section_name}</td>
+          <td>${b.cemetery_name}</td>
+          <td>${fmtDateTime(b.burial_datetime)}</td>
+          <td style="color:var(--text-faint)">${b.confirmed_by}</td>
+        </tr>`).join('')
+      : `<tr><td colspan="8" class="empty">No burial records yet</td></tr>`;
+  } catch(e) {
+    document.getElementById('burialsTbody').innerHTML = `<tr><td colspan="8" class="empty" style="color:var(--red)">${e.message}</td></tr>`;
+  }
+}
+
+async function openAddModal() {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('b-datetime').value = now.toISOString().slice(0, 16);
+
+  try {
+    const [cases, graves, users] = await Promise.all([
+      apiFetch('/deathcases/unburied/list'),
+      apiFetch('/graves?status=Available'),
+      apiFetch('/users'),
+    ]);
+    document.getElementById('b-case').innerHTML = cases.length
+      ? cases.map(c => `<option value="${c.case_id}">${c.deceased_name} (died ${fmtDate(c.date_of_death)})</option>`).join('')
+      : `<option value="">No unburied cases</option>`;
+    document.getElementById('b-grave').innerHTML = graves.length
+      ? graves.map(g => `<option value="${g.grave_id}">${g.grave_code} — ${g.cemetery_name} / ${g.section_name}</option>`).join('')
+      : `<option value="">No available graves</option>`;
+    document.getElementById('b-confirmedby').innerHTML = users.map(u =>
+      `<option value="${u.user_id}">${u.name} (${u.role})</option>`).join('');
+  } catch(e) {
+    toast('Failed to load form data: ' + e.message, 'error');
+    return;
+  }
+  openModal('addBurialModal');
+}
+
+async function addBurial() {
+  const caseId  = parseInt(document.getElementById('b-case').value);
+  const graveId = parseInt(document.getElementById('b-grave').value);
+  const dt      = document.getElementById('b-datetime').value;
+  const confBy  = parseInt(document.getElementById('b-confirmedby').value);
+  if (!caseId)  return toast('Please select a death case', 'error');
+  if (!graveId) return toast('Please select a grave', 'error');
+  if (!dt)      return toast('Burial date/time is required', 'error');
+  const btn = document.getElementById('saveBurialBtn');
+  setSaving(btn, true);
+  try {
+    await apiFetch('/burials', {
+      method: 'POST',
+      body: { case_id: caseId, grave_id: graveId, burial_datetime: dt, confirmed_by: confBy }
+    });
+    closeModal('addBurialModal');
+    toast('Burial record saved — grave marked Occupied');
+    await load();
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    setSaving(btn, false);
+  }
+}
+
+load();
+</script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

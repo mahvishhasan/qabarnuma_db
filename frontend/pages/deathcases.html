@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Death Cases — QabarNuma</title>
+<link rel="stylesheet" href="../css/styles.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo"><div class="logo-icon"><i data-lucide="moon"></i></div><div><div class="logo-title">QabarNuma</div><div class="logo-sub">Cemetery Mgmt</div></div></div>
+  <ul class="nav-links">
+    <li><a href="../index.html"         class="nav-link"><span class="ni"><i data-lucide="layout-dashboard"></i></span> Dashboard</a></li>
+    <li><a href="cemeteries.html"       class="nav-link"><span class="ni"><i data-lucide="building-2"></i></span> Cemeteries</a></li>
+    <li><a href="graves.html"           class="nav-link"><span class="ni"><i data-lucide="square"></i></span> Graves</a></li>
+    <li><a href="deathcases.html"       class="nav-link"><span class="ni"><i data-lucide="clipboard-list"></i></span> Death Cases</a></li>
+    <li><a href="burials.html"          class="nav-link"><span class="ni"><i data-lucide="book-open"></i></span> Burials</a></li>
+    <li><a href="reservations.html"     class="nav-link"><span class="ni"><i data-lucide="bookmark"></i></span> Reservations</a></li>
+    <li><a href="funeralservices.html"  class="nav-link"><span class="ni"><i data-lucide="heart-handshake"></i></span> Funeral Services</a></li>
+    <li><a href="staff.html"            class="nav-link"><span class="ni"><i data-lucide="users"></i></span> Staff</a></li>
+    <li><a href="reports.html"          class="nav-link"><span class="ni"><i data-lucide="bar-chart-2"></i></span> Reports</a></li>
+    <li><a href="graveyard.html" class="nav-link"><span class="ni"><i data-lucide="map"></i></span> Graveyard Map</a></li>
+  </ul>
+</nav>
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left"><h1 class="page-title">Death Cases</h1><p class="page-sub">Register and track deceased records</p></div>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Register Case</button>
+  </header>
+  <div class="card">
+    <div class="filters">
+      <div class="form-group">
+        <label>Search Name</label>
+        <input class="form-control" id="f-search" placeholder="Deceased name…" oninput="applyFilters()"/>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select class="form-control" id="f-status" onchange="applyFilters()">
+          <option value="">All</option>
+          <option>Pending</option><option>Scheduled</option>
+          <option>Completed</option><option>Cancelled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Gender</label>
+        <select class="form-control" id="f-gender" onchange="applyFilters()">
+          <option value="">All</option><option>Male</option><option>Female</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:flex-end">
+        <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+        <button class="btn btn-secondary" onclick="loadUnburied()" title="Show cases with no burial record">Unburied Only</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Age</th><th>Gender</th><th>Date of Death</th><th>Status</th><th>Burial</th><th>Registered By</th><th>Actions</th></tr></thead>
+        <tbody id="casesTbody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Register Case Modal -->
+<div class="modal-overlay" id="addCaseModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Register Death Case</span>
+      <button class="modal-close" onclick="closeModal('addCaseModal')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Deceased Name *</label>
+        <input class="form-control" id="c-name" placeholder="Full name"/>
+      </div>
+      <div class="form-group">
+        <label>Age</label>
+        <input class="form-control" type="number" id="c-age" placeholder="Age" min="0" max="150"/>
+      </div>
+      <div class="form-group">
+        <label>Gender *</label>
+        <select class="form-control" id="c-gender">
+          <option>Male</option><option>Female</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date of Death *</label>
+        <input class="form-control" type="date" id="c-dod"/>
+      </div>
+      <div class="form-group">
+        <label>Registered By *</label>
+        <select class="form-control" id="c-staff"><option value="">Loading…</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addCaseModal')">Cancel</button>
+      <button class="btn btn-primary" id="saveCaseBtn" onclick="addCase()">Register</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/app.js"></script>
+<script>
+let allCases = [];
+
+async function load() {
+  document.getElementById('casesTbody').innerHTML = `<tr><td colspan="9" class="empty">Loading…</td></tr>`;
+  try {
+    allCases = await apiFetch('/deathcases');
+    renderCases(allCases);
+  } catch(e) {
+    document.getElementById('casesTbody').innerHTML = `<tr><td colspan="9" class="empty" style="color:var(--red)">${e.message}</td></tr>`;
+  }
+}
+
+function renderCases(list) {
+  document.getElementById('casesTbody').innerHTML = list.length
+    ? list.map(c => `<tr>
+        <td>#${c.case_id}</td>
+        <td><strong>${c.deceased_name}</strong></td>
+        <td>${c.age ?? '—'}</td>
+        <td>${c.gender}</td>
+        <td>${fmtDate(c.date_of_death)}</td>
+        <td>${statusBadge(c.status)}</td>
+        <td style="font-size:.78rem">${c.grave_code ? `<span style="color:var(--accent)">${c.grave_code}</span>` : '<span style="color:var(--text-faint)">—</span>'}</td>
+        <td style="color:var(--text-faint)">${c.created_by}</td>
+        <td class="td-actions">
+          ${c.status !== 'Completed' && c.status !== 'Cancelled'
+            ? `<button class="btn-sm" onclick="cycleStatus(${c.case_id},'${c.status}')">Update Status</button>` : ''}
+        </td>
+      </tr>`).join('')
+    : `<tr><td colspan="9" class="empty">No cases found</td></tr>`;
+}
+
+function applyFilters() {
+  const search = document.getElementById('f-search').value.toLowerCase();
+  const status = document.getElementById('f-status').value;
+  const gender = document.getElementById('f-gender').value;
+  renderCases(allCases.filter(c =>
+    (!search || c.deceased_name.toLowerCase().includes(search)) &&
+    (!status || c.status === status) &&
+    (!gender || c.gender === gender)
+  ));
+}
+
+function resetFilters() {
+  ['f-search','f-status','f-gender'].forEach(id => document.getElementById(id).value = '');
+  renderCases(allCases);
+}
+
+async function loadUnburied() {
+  document.getElementById('casesTbody').innerHTML = `<tr><td colspan="9" class="empty">Loading…</td></tr>`;
+  try {
+    const data = await apiFetch('/deathcases/unburied/list');
+    allCases = data;
+    renderCases(data);
+    toast(`${data.length} unburied case${data.length !== 1 ? 's' : ''}`, 'info');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+const statusCycle = ['Pending', 'Scheduled', 'Completed', 'Cancelled'];
+async function cycleStatus(id, current) {
+  const next = statusCycle[(statusCycle.indexOf(current) + 1) % statusCycle.length];
+  if (!confirm(`Change status to "${next}"?`)) return;
+  try {
+    await apiFetch(`/deathcases/${id}/status`, { method: 'PATCH', body: { status: next } });
+    toast('Status updated');
+    allCases = allCases.map(c => c.case_id === id ? { ...c, status: next } : c);
+    applyFilters();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function openAddModal() {
+  clearForm('#addCaseModal');
+  document.getElementById('c-dod').value = new Date().toISOString().split('T')[0];
+  try {
+    const users = await apiFetch('/users');
+    document.getElementById('c-staff').innerHTML = users.map(u =>
+      `<option value="${u.user_id}">${u.name} (${u.role})</option>`).join('');
+  } catch(e) {
+    document.getElementById('c-staff').innerHTML = `<option value="">Failed to load users</option>`;
+  }
+  openModal('addCaseModal');
+}
+
+async function addCase() {
+  const name = document.getElementById('c-name').value.trim();
+  const dod  = document.getElementById('c-dod').value;
+  const staffId = parseInt(document.getElementById('c-staff').value);
+  if (!name) return toast('Deceased name is required', 'error');
+  if (!dod)  return toast('Date of death is required', 'error');
+  if (!staffId) return toast('Please select who is registering this case', 'error');
+  const btn = document.getElementById('saveCaseBtn');
+  setSaving(btn, true);
+  try {
+    await apiFetch('/deathcases', {
+      method: 'POST',
+      body: {
+        deceased_name: name,
+        age:           parseInt(document.getElementById('c-age').value) || null,
+        gender:        document.getElementById('c-gender').value,
+        date_of_death: dod,
+        created_by:    staffId,
+      }
+    });
+    closeModal('addCaseModal');
+    toast('Death case registered');
+    await load();
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    setSaving(btn, false);
+  }
+}
+
+load();
+</script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dashboard — QabarNuma</title>
+<link rel="stylesheet" href="css/styles.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo"><div class="logo-icon"><i data-lucide="moon"></i></div><div><div class="logo-title">QabarNuma</div><div class="logo-sub">Cemetery Mgmt</div></div></div>
+  <ul class="nav-links">
+    <li><a href="index.html"                    class="nav-link"><span class="ni"><i data-lucide="layout-dashboard"></i></span> Dashboard</a></li>
+    <li><a href="pages/cemeteries.html"         class="nav-link"><span class="ni"><i data-lucide="building-2"></i></span> Cemeteries</a></li>
+    <li><a href="pages/graves.html"             class="nav-link"><span class="ni"><i data-lucide="square"></i></span> Graves</a></li>
+    <li><a href="pages/deathcases.html"         class="nav-link"><span class="ni"><i data-lucide="clipboard-list"></i></span> Death Cases</a></li>
+    <li><a href="pages/burials.html"            class="nav-link"><span class="ni"><i data-lucide="book-open"></i></span> Burials</a></li>
+    <li><a href="pages/reservations.html"       class="nav-link"><span class="ni"><i data-lucide="bookmark"></i></span> Reservations</a></li>
+    <li><a href="pages/funeralservices.html"    class="nav-link"><span class="ni"><i data-lucide="heart-handshake"></i></span> Funeral Services</a></li>
+    <li><a href="pages/staff.html"              class="nav-link"><span class="ni"><i data-lucide="users"></i></span> Staff</a></li>
+    <li><a href="pages/reports.html"            class="nav-link"><span class="ni"><i data-lucide="bar-chart-2"></i></span> Reports</a></li>
+    <li><a href="pages/graveyard.html" class="nav-link"><span class="ni"><i data-lucide="map"></i></span> Graveyard Map</a></li>
+  </ul>
+  <div class="sidebar-footer">QabarNuma v3 · Lahore</div>
+</nav>
+
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-sub" id="dateDisplay"></p>
+    </div>
+    <button class="btn btn-secondary" onclick="loadAll()">Refresh</button>
+  </header>
+
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card loading"></div>
+    <div class="stat-card loading"></div>
+    <div class="stat-card loading"></div>
+    <div class="stat-card loading"></div>
+    <div class="stat-card loading"></div>
+    <div class="stat-card loading"></div>
+  </div>
+
+  <div class="row-2col">
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Cemetery Occupancy</div><div class="card-subtitle">Active cemeteries</div></div>
+      </div>
+      <div id="occList"><div style="color:var(--text-faint);font-size:.83rem">Loading…</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Pending Tasks</div><div class="card-subtitle">Requires attention</div></div>
+        <a href="pages/reports.html" class="btn-sm">View All</a>
+      </div>
+      <div id="taskList"><div style="color:var(--text-faint);font-size:.83rem">Loading…</div></div>
+    </div>
+  </div>
+</main>
+
+<script src="js/app.js"></script>
+<script>
+document.getElementById('dateDisplay').textContent =
+  new Date().toLocaleDateString('en-PK', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+async function loadAll() {
+  try {
+    const [stats, occ, tasks] = await Promise.all([
+      apiFetch('/reports/dashboard'),
+      apiFetch('/reports/cemetery-occupancy'),
+      apiFetch('/reports/pending-tasks'),
+    ]);
+
+    document.getElementById('statsGrid').innerHTML = `
+      <div class="stat-card blue">
+        <div class="stat-icon"><i data-lucide="building-2"></i></div>
+        <div class="stat-val">${stats.activeCemeteries}</div>
+        <div class="stat-lbl">Active Cemeteries</div>
+      </div>
+      <div class="stat-card gray">
+        <div class="stat-icon"><i data-lucide="map-pin"></i></div>
+        <div class="stat-val">${stats.totalGraves}</div>
+        <div class="stat-lbl">Total Graves</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon"><i data-lucide="check-circle"></i></div>
+        <div class="stat-val">${stats.availableGraves}</div>
+        <div class="stat-lbl">Available</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon"><i data-lucide="x-circle"></i></div>
+        <div class="stat-val">${stats.occupiedGraves}</div>
+        <div class="stat-lbl">Occupied</div>
+      </div>
+      <div class="stat-card accent">
+        <div class="stat-icon"><i data-lucide="clipboard-list"></i></div>
+        <div class="stat-val">${stats.totalCases}</div>
+        <div class="stat-lbl">Total Cases</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-icon"><i data-lucide="clock"></i></div>
+        <div class="stat-val">${stats.pendingCases}</div>
+        <div class="stat-lbl">Pending Cases</div>
+      </div>`;
+    lucide.createIcons()
+
+    lucide.createIcons();
+    document.getElementById('occList').innerHTML = occ.length
+      ? occ.map(o => {
+          const pct = parseFloat(o.occupancy_pct) || 0;
+          return `<div style="margin-bottom:.9rem">
+            <div style="display:flex;justify-content:space-between;margin-bottom:.35rem">
+              <span style="font-size:.84rem;color:var(--text-secondary);font-weight:500">${o.cemetery}</span>
+              <span style="font-size:.78rem;color:var(--text-faint)">${o.occupied}/${o.total_graves}</span>
+            </div>
+            <div class="occ-bar-wrap">
+              <div class="occ-bar" style="flex:1"><div class="occ-fill" style="width:${pct}%;background:${occColor(pct)}"></div></div>
+              <span class="occ-pct">${pct}%</span>
+            </div>
+          </div>`;
+        }).join('')
+      : `<div style="color:var(--text-faint);font-size:.83rem">No cemetery data</div>`;
+
+    document.getElementById('taskList').innerHTML = tasks.length
+      ? tasks.slice(0, 8).map(t => `
+          <div style="display:flex;align-items:center;gap:.65rem;padding:.5rem 0;border-bottom:1px solid var(--border-subtle)">
+            <span class="badge ${t.item_type==='Death Case'?'badge-red':'badge-amber'}" style="flex-shrink:0">${t.item_type}</span>
+            <span style="flex:1;font-size:.82rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description}</span>
+            <span style="font-size:.74rem;color:var(--text-faint);flex-shrink:0">${(t.relevant_date||'').substring(0,10)}</span>
+          </div>`).join('')
+      : `<div style="color:var(--green);font-size:.83rem;padding:.5rem 0">✓ No pending tasks</div>`;
+  } catch(e) {
+    document.getElementById('statsGrid').innerHTML = `<div style="grid-column:1/-1;color:var(--red);font-size:.83rem;padding:1rem">Failed to load: ${e.message}</div>`;
+  }
+}
+
+loadAll();
+</script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

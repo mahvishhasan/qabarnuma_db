@@ -1,0 +1,63 @@
+version: '3.9'
+
+services:
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: qabarnuma_db
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "Qabar1234!"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Qabar1234!' -Q 'SELECT name FROM sys.databases WHERE name=N''QabarNuma''' -No | grep -q QabarNuma || exit 1"]
+      interval: 15s
+      retries: 20
+      start_period: 60s
+
+  setup:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: qabarnuma_setup
+    depends_on:
+      db:
+        condition: service_started
+    volumes:
+      - ./schema.sql:/schema.sql
+      - ./schema_fixes.sql:/schema_fixes.sql
+    entrypoint: >
+      bash -c "
+        echo 'Waiting for SQL Server...' &&
+        sleep 20 &&
+        echo 'Loading schema...' &&
+        /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P 'Qabar1234!' -i /schema.sql -No;
+        echo 'Applying fixes...' &&
+        /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P 'Qabar1234!' -i /schema_fixes.sql -No;
+        echo 'Setup complete.'
+      "
+    restart: "no"
+
+  app:
+    build: .
+    container_name: qabarnuma_app
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_SERVER: db
+      DB_PORT: "1433"
+      DB_USER: sa
+      DB_PASSWORD: "Qabar1234!"
+      DB_NAME: QabarNuma
+      PORT: "3000"
+    restart: unless-stopped
+
+volumes:
+  sqldata:
